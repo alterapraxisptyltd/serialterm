@@ -26,10 +26,9 @@ historySize = 100
 fg, bg :: Color
 fg = white
 bg = black
-focAttr, headerAttr, msgAttr :: Attr
+focAttr, headerAttr :: Attr
 focAttr = black `on` yellow
 headerAttr = fgColor bright_green
-msgAttr = fgColor blue
 
 --
 -- ..
@@ -88,32 +87,15 @@ main = do
   -- Focus Groups --
   -- ------------ --
   fgr <- newFocusGroup -- main focus
-  fgh <- newFocusGroup -- help menu focus
   addToFocusGroup fgr b
   -- addToFocusGroup fgr edit1
   -- addToFocusGroup fgr edit2
-
-  -- --------- --
-  -- Help Menu --
-  -- --------- --
-  let msg = "- <TAB> switches input elements\n\n\
-            \- ordinary keystrokes edit\n\n\
-            \- <SPC> toggles checkboxes\n\n\
-            \- <ESC> quits"
-
-  helpBox <- bordered =<< (textWidget wrap msg >>= withNormalAttribute msgAttr)
-  setBorderedLabel helpBox "Help"
-  hui <- centered helpBox
-
-  addToFocusGroup fgh hui
 
   -- ---------------- --
   -- Main Collections --
   -- ---------------- --
   c <- newCollection
-  hc <- newCollection
-  changeToHelp <- addToCollection hc hui fgh
-  changeToMain <- addToCollection c ui fgr
+  _ <- addToCollection c ui fgr
 
   -- -------------- --
   -- Event Handlers --
@@ -127,12 +109,8 @@ main = do
     case k of
       KEsc -> exitSuccess
       KASCII 'z' -> return True
-      KASCII 'h' -> changeToHelp >> return True
+--      KASCII 'h' -> changeToHelp >> return True
       _ -> return False
-
-  fgh `onKeyPressed` \_ k _ ->
-    case k of
-      KEsc -> changeToMain >> return True
 
   -- ------------- --
   -- Enumlicate UI --

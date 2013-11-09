@@ -1,6 +1,8 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module ConfigMenu where
 
-import Graphics.Vty hiding (pad)
+-- import Graphics.Vty hiding (pad)
 import Graphics.Vty.Widgets.All
 -- import System.Locale
 -- import Control.Monad
