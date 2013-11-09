@@ -26,32 +26,23 @@ headerAttr = fgColor bright_green
 msgAttr = fgColor blue
 
 
-  -- ------------ --
-  -- Help Message --
-  -- ------------ --
---  let msg = "- <TAB> switches input elements\n\n\
---            \- ordinary keystrokes edit\n\n\
---            \- <SPC> toggles checkboxes\n\n\
---            \- <ESC> quits"
---
-
 -- Multi-state checkbox value type
-data FlowControlType = Hardware
-                  | Software
-                    deriving (Eq, Show)
+data FlowControlType = Hardware | Software deriving (Eq, Show)
 
+data StatusT = Connected | Disconnected deriving Show
+
+-- data SpeedT = 15220 | 9600
 
 main :: IO ()
 main = do
-  let columns = [ column (ColFixed 25) `pad` padAll 1
-                , column ColAuto `pad` padAll 1
-                ]
-
-  table <- newTable columns BorderFull >>=
-           withNormalAttribute (bgColor blue) >>=
-           withBorderAttribute (fgColor green)
-
-  -- tw <- textWidget wrap msg >>= withNormalAttribute msgAttr
+--  let columns = [ column (ColFixed 25) `pad` padAll 1
+--                , column ColAuto `pad` padAll 1
+--                ]
+--
+--  table <- newTable columns BorderFull >>=
+--           withNormalAttribute (bgColor blue) >>=
+--           withBorderAttribute (fgColor green)
+--
 
   -- --------------------- --
   -- Status & Command Line --
@@ -61,29 +52,12 @@ main = do
   -- XXX: replace "UART" with name of device
   b <- plainText "[UART] :: >> " <++> return e
 
-  -- XXX: FIX status bar to be like vim??? dont use a table..??
-  -- status widgits
-  sw1 <- editWidget
-  sw2 <- editWidget
-  swbox1 <- boxFixed 5 1 sw1
-  swbox2 <- boxFixed 5 1 sw2
-  r1 <- newMultiStateCheckbox "FlowControl" [ (Hardware, 'H')
-                                            , (Software, 'S')
-                                            ]
+  sbox1 <- plainText "Speed : 15200 bps" <++> vBorder <++> plainText "Device : .." >>= withBoxSpacing 1
+  sbox2 <- plainText "Status : Disconnected" <++> plainText ".." >>= withBoxSpacing 1
+  sbox <- return sbox1 <++> vBorder <++> return sbox2
+  sbar <- boxFixed 40 1 sbox
 
-  cbHeader <- plainText T.empty
-  addHeadingRow_ table headerAttr ["Device", "Status"]
-  addRow table $ cbHeader .|. r1
-  addRow table $ swbox1 .|. swbox2
-
-  setCheckboxState r1 Software
-  -- It would be nice if we didn't have to do this, but the
-  -- setCheckboxState call above will not notify any state-change
-  -- handlers because the state isn't actually changing (from its
-  -- original value of Chocolate, the first value in its state list).
-  setText cbHeader "you chose: Software"
-
-  cbox <- return table <--> hBorder <--> return b
+  cbox <- return sbar <--> hBorder <--> return b
   cui <- bordered cbox
 
   -- --------- --
@@ -98,9 +72,7 @@ main = do
   setEditLineLimit edit1 $ Just historySize
   setEditLineLimit edit2 $ Just historySize
 
-  b1 <- return edit1box <++> vBorder <++> return edit2box
-  tv <- bordered b1
-  setBorderedLabel tv "Twin View"
+  tv <- bordered =<< return edit1box <++> vBorder <++> return edit2box
   vui <- centered =<< hLimit 95 tv
 
   -- ------------- --
@@ -115,40 +87,74 @@ main = do
   -- ------------ --
   -- Focus Groups --
   -- ------------ --
-  fgr <- newFocusGroup
+  fgr <- newFocusGroup -- main focus
+  fgh <- newFocusGroup -- help menu focus
+  fgc <- newFocusGroup -- config menu focus
   addToFocusGroup fgr b
-  addToFocusGroup fgr r1
-  addToFocusGroup fgr edit1
-  addToFocusGroup fgr edit2
+  -- addToFocusGroup fgr r1
+  -- addToFocusGroup fgr edit1
+  -- addToFocusGroup fgr edit2
 
-  -- -------------- --
-  -- Event Handlers --
-  -- -------------- --
-  r1 `onCheckboxChange` \v ->
-      setText cbHeader $ T.pack ("you chose: " ++ show v)
+  -- ------------------ --
+  -- Configuration Menu --
+  -- ------------------ --
+  r1 <- newMultiStateCheckbox "FlowControl" [ (Hardware, 'H')
+                                           , (Software, 'S')
+                                           ]
 
-  -- XXX: event handle twin view streams..
-  -- edit1 `onChange` setText edit1Header
-  -- edit2 `onChange` setText edit2Header
+  r1State <- plainText T.empty
+  rbox <- return r1State <++> return r1
+  addToFocusGroup fgc rbox
 
-  -- XXX: Handle the editor events so that onactivate we send to the serial device
-  -- XXX: event handler for entering text in editwidget
-  -- e `onActivate` \this ->
-  --   getEditText this >>= (error . ("You entered: " ++) . T.unpack)
+  setCheckboxState r1 Software
+  -- It would be nice if we didn't have to do this, but the
+  -- setCheckboxState call above will not notify any state-change
+  -- handlers because the state isn't actually changing (from its
+  -- original value of Chocolate, the first value in its state list).
+  setText r1State "you chose: Software"
 
---  efg `onKeyPressed` \_ key _ ->
---    if key == KASCII 'q' then
---      exitSuccess else return False
-  fgr `onKeyPressed` \_ k _ ->
-         case k of
-           KEsc -> exitSuccess
-           _ -> return False
+  -- --------- --
+  -- Help Menu --
+  -- --------- --
+  let msg = "- <TAB> switches input elements\n\n\
+            \- ordinary keystrokes edit\n\n\
+            \- <SPC> toggles checkboxes\n\n\
+            \- <ESC> quits"
+
+  helpBox <- bordered =<< (textWidget wrap msg >>= withNormalAttribute msgAttr)
+  setBorderedLabel helpBox "Help"
+  hui <- centered helpBox
+
+  addToFocusGroup fgh hui
 
   -- ---------------- --
   -- Main Collections --
   -- ---------------- --
   c <- newCollection
-  _ <- addToCollection c ui fgr
+  hc <- newCollection
+  changeToHelp <- addToCollection hc hui fgh
+  changeToMain <- addToCollection c ui fgr
+
+  -- -------------- --
+  -- Event Handlers --
+  -- -------------- --
+  r1 `onCheckboxChange` \v ->
+      setText r1State $ T.pack ("you chose: " ++ show v)
+
+  -- XXX: event handle twin view streams..
+  -- edit1 `onChange` setText edit1Header
+  -- edit2 `onChange` setText edit2Header
+
+  fgr `onKeyPressed` \_ k _ ->
+    case k of
+      KEsc -> exitSuccess
+      KASCII 'z' -> return True
+      KASCII 'h' -> changeToHelp >> return True
+      _ -> return False
+
+  fgh `onKeyPressed` \_ k _ ->
+    case k of
+      KEsc -> changeToMain >> return True
 
   -- ------------- --
   -- Enumlicate UI --
