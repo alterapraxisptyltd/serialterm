@@ -9,6 +9,13 @@ import System.Exit ( exitSuccess )
 -- import System.Locale
 import qualified Data.Text as T
 
+-- ..
+appName :: T.Text
+appName = "HardTerm"
+
+historySize :: Int
+historySize = 100
+
 -- Visual attributes.
 fg, bg :: Color
 fg = white
@@ -18,6 +25,16 @@ focAttr = black `on` yellow
 headerAttr = fgColor bright_green
 msgAttr = fgColor blue
 
+
+  -- ------------ --
+  -- Help Message --
+  -- ------------ --
+--  let msg = "- <TAB> switches input elements\n\n\
+--            \- ordinary keystrokes edit\n\n\
+--            \- <SPC> toggles checkboxes\n\n\
+--            \- <ESC> quits"
+--
+
 -- Multi-state checkbox value type
 data FlowControlType = Hardware
                   | Software
@@ -26,18 +43,7 @@ data FlowControlType = Hardware
 
 main :: IO ()
 main = do
-  -- ------------ --
-  -- Help Message --
-  -- ------------ --
-  let msg = "- <TAB> switches input elements\n\n\
-            \- ordinary keystrokes edit\n\n\
-            \- <SPC> toggles checkboxes\n\n\
-            \- <ESC> quits"
-
-  -- ---------------- --
-  -- Build Table View --
-  -- ---------------- --
-      columns = [ column (ColFixed 25) `pad` padAll 1
+  let columns = [ column (ColFixed 25) `pad` padAll 1
                 , column ColAuto `pad` padAll 1
                 ]
 
@@ -45,42 +51,30 @@ main = do
            withNormalAttribute (bgColor blue) >>=
            withBorderAttribute (fgColor green)
 
-  -- -------------- --
-  -- Create Widgits --
-  -- -------------- --
-  tw <- textWidget wrap msg >>= withNormalAttribute msgAttr
-  mainBox <- vBox table tw >>= withBoxSpacing 1
+  -- tw <- textWidget wrap msg >>= withNormalAttribute msgAttr
 
-  r1 <- newMultiStateCheckbox "FlowControl" [ (Hardware, 'H')
-                                            , (Software, 'S')
-                                            ]
-
-  -- XXX: split view stream..
-  edit1 <- multiLineEditWidget >>= withFocusAttribute (white `on` red)
-  edit2 <- multiLineEditWidget
-  edit1box <- boxFixed 30 3 edit1
-  edit2box <- boxFixed 30 3 edit2
-  setEditLineLimit edit1 $ Just 3
-  setEditLineLimit edit2 $ Just 3
-
-  edit1Header <- textWidget wrap T.empty >>= withNormalAttribute headerAttr
-  edit2Header <- textWidget wrap T.empty >>= withNormalAttribute headerAttr
-
+  -- --------------------- --
+  -- Status & Command Line --
+  -- --------------------- --
   -- Single-line text editor, sends commands to UART
   e <- editWidget
   -- XXX: replace "UART" with name of device
   b <- plainText "[UART] :: >> " <++> return e
 
-  -- ---------------------- --
-  -- Configure Table Layout --
-  -- ---------------------- --
+  -- XXX: FIX status bar to be like vim??? dont use a table..??
+  -- status widgits
+  sw1 <- editWidget
+  sw2 <- editWidget
+  swbox1 <- boxFixed 5 1 sw1
+  swbox2 <- boxFixed 5 1 sw2
+  r1 <- newMultiStateCheckbox "FlowControl" [ (Hardware, 'H')
+                                            , (Software, 'S')
+                                            ]
 
   cbHeader <- plainText T.empty
-  addHeadingRow_ table headerAttr ["Column 1", "Column 2"]
-  addRow table $ edit1Header .|. edit1box
-  addRow table $ edit2Header .|. edit2box
+  addHeadingRow_ table headerAttr ["Device", "Status"]
   addRow table $ cbHeader .|. r1
-  addRow table $ b .|. b
+  addRow table $ swbox1 .|. swbox2
 
   setCheckboxState r1 Software
   -- It would be nice if we didn't have to do this, but the
@@ -88,6 +82,35 @@ main = do
   -- handlers because the state isn't actually changing (from its
   -- original value of Chocolate, the first value in its state list).
   setText cbHeader "you chose: Software"
+
+  cbox <- return table <--> hBorder <--> return b
+  cui <- bordered cbox
+
+  -- --------- --
+  -- Twin View --
+  -- --------- --
+  -- XXX: split (or n?) view stream..
+  -- XXX: geometry ok? 40+40=80 colums boxFixed change to vBox ?
+  edit1 <- multiLineEditWidget >>= withFocusAttribute (white `on` red)
+  edit2 <- multiLineEditWidget
+  edit1box <- boxFixed 40 historySize edit1
+  edit2box <- boxFixed 40 historySize edit2
+  setEditLineLimit edit1 $ Just historySize
+  setEditLineLimit edit2 $ Just historySize
+
+  b1 <- return edit1box <++> vBorder <++> return edit2box
+  tv <- bordered b1
+  setBorderedLabel tv "Twin View"
+  vui <- centered =<< hLimit 95 tv
+
+  -- ------------- --
+  -- Build main UI --
+  -- ------------- --
+
+  b2 <- return vui <--> hBorder <--> return cui
+  mainBox <- bordered b2
+  setBorderedLabel mainBox appName
+  ui <- centered mainBox
 
   -- ------------ --
   -- Focus Groups --
@@ -98,8 +121,6 @@ main = do
   addToFocusGroup fgr edit1
   addToFocusGroup fgr edit2
 
-  -- ui <- centered =<< hLimit 95 mainBox
-
   -- -------------- --
   -- Event Handlers --
   -- -------------- --
@@ -107,8 +128,8 @@ main = do
       setText cbHeader $ T.pack ("you chose: " ++ show v)
 
   -- XXX: event handle twin view streams..
-  edit1 `onChange` setText edit1Header
-  edit2 `onChange` setText edit2Header
+  -- edit1 `onChange` setText edit1Header
+  -- edit2 `onChange` setText edit2Header
 
   -- XXX: Handle the editor events so that onactivate we send to the serial device
   -- XXX: event handler for entering text in editwidget
@@ -127,8 +148,7 @@ main = do
   -- Main Collections --
   -- ---------------- --
   c <- newCollection
-  -- _ <- addToCollection c ui fgr
-  _ <- addToCollection c mainBox fgr
+  _ <- addToCollection c ui fgr
 
   -- ------------- --
   -- Enumlicate UI --
