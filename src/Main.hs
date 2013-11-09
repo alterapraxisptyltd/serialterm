@@ -7,8 +7,10 @@ import Graphics.Vty.Widgets.All
 
 import System.Exit ( exitSuccess )
 -- import System.Locale
--- import Control.Monad
+import Control.Monad
 import qualified Data.Text as T
+
+import HelpMenu
 
 --
 -- ..
@@ -29,6 +31,12 @@ bg = black
 focAttr, headerAttr :: Attr
 focAttr = black `on` yellow
 headerAttr = fgColor bright_green
+
+changeToHelp :: IO ()
+changeToHelp = do
+  (x, y) <- helpMenu
+  c <- newCollection
+  join (addToCollection c (helpWidgit x) y)
 
 --
 -- ..
@@ -109,7 +117,7 @@ main = do
     case k of
       KEsc -> exitSuccess
       KASCII 'z' -> return True
---      KASCII 'h' -> changeToHelp >> return True
+      KASCII 'h' -> changeToHelp >> return True
       _ -> return False
 
   -- ------------- --

@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module ConfigMenu (helpMenu, HelpT) where
+module HelpMenu (helpMenu, HelpT, helpWidgit) where
 
 import Graphics.Vty hiding (pad)
 import Graphics.Vty.Widgets.All
