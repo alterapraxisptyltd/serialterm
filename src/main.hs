@@ -7,8 +7,14 @@ import Graphics.Vty.Widgets.All
 
 import System.Exit ( exitSuccess )
 -- import System.Locale
+-- import Control.Monad
 import qualified Data.Text as T
 
+--
+-- ..
+data StatusT = Connected | Disconnected deriving Show
+
+--
 -- ..
 appName :: T.Text
 appName = "HardTerm"
@@ -25,14 +31,8 @@ focAttr = black `on` yellow
 headerAttr = fgColor bright_green
 msgAttr = fgColor blue
 
-
--- Multi-state checkbox value type
-data FlowControlType = Hardware | Software deriving (Eq, Show)
-
-data StatusT = Connected | Disconnected deriving Show
-
--- data SpeedT = 15220 | 9600
-
+--
+-- ..
 main :: IO ()
 main = do
 --  let columns = [ column (ColFixed 25) `pad` padAll 1
@@ -89,29 +89,9 @@ main = do
   -- ------------ --
   fgr <- newFocusGroup -- main focus
   fgh <- newFocusGroup -- help menu focus
-  fgc <- newFocusGroup -- config menu focus
   addToFocusGroup fgr b
-  -- addToFocusGroup fgr r1
   -- addToFocusGroup fgr edit1
   -- addToFocusGroup fgr edit2
-
-  -- ------------------ --
-  -- Configuration Menu --
-  -- ------------------ --
-  r1 <- newMultiStateCheckbox "FlowControl" [ (Hardware, 'H')
-                                           , (Software, 'S')
-                                           ]
-
-  r1State <- plainText T.empty
-  rbox <- return r1State <++> return r1
-  addToFocusGroup fgc rbox
-
-  setCheckboxState r1 Software
-  -- It would be nice if we didn't have to do this, but the
-  -- setCheckboxState call above will not notify any state-change
-  -- handlers because the state isn't actually changing (from its
-  -- original value of Chocolate, the first value in its state list).
-  setText r1State "you chose: Software"
 
   -- --------- --
   -- Help Menu --
@@ -138,8 +118,6 @@ main = do
   -- -------------- --
   -- Event Handlers --
   -- -------------- --
-  r1 `onCheckboxChange` \v ->
-      setText r1State $ T.pack ("you chose: " ++ show v)
 
   -- XXX: event handle twin view streams..
   -- edit1 `onChange` setText edit1Header
